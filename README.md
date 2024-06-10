@@ -85,6 +85,52 @@ The other rundll32.exe points to a DLL in a \\Temp\\ folder which is unusual. We
 
 ![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/8e69ed28-1a00-40b3-ac7c-6fc7648062a0)
 
+## Baselining Network Activity
+
+I like the way this lab is set out making me ask questions along the way to get my head into the mind of a SOC Analyst... 
+
+# Question - What are the most/least common network connections across these systems?
+
+Lets open up the Hunt - 'Stacking - Windows.Network.Netstat' and use the supplied Notebook which will group and count all network connections by process Name and Raddr.IP or “remote address IP.”
+
+```
+SELECT Name,Family,Type,Status,`Laddr.IP`,`Laddr.Port`,`Raddr.IP`,`Raddr.Port`,Fqdn, count() AS Count FROM source(artifact="Windows.Network.Netstat")
+GROUP BY Name,`Raddr.IP`
+ORDER BY Count
+```
+
+![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/43c384af-01d0-4854-a6a7-c1f1ad1482a1)
+
+So what are we actually looking at here? We are seeing what these systems were doing over the network at the time of the hunt.
+
+We need to specifically look for:
+  Traffic over unusual ports
+  Outbound traffic by unusual processes, or processes that don’t regularly make internet connections
+  Traffic between workstations
+  Connections to suspicious IP addresses (requires OSINT enrichment)
+
+So again we need to play with the notebook to filter out the noise and concentrate on more interesting connections
+  
+Below is the Notebook i ended up with to filter out entries that had no remote address
+
+```
+SELECT Name,Family,Type,Status,`Laddr.IP`,`Laddr.Port`,`Raddr.IP`,`Raddr.Port`,Fqdn, count() AS Count FROM source(artifact="Windows.Network.Netstat")
+WHERE NOT `Raddr.Port` =~ "0"
+AND NOT `Raddr.IP` =~ "(0\.0\.0\.0|::)"
+GROUP BY Name,`Raddr.IP`
+ORDER BY Count
+```
+
+Now we can easily see the same rundll32.exe going out to a remote IP 70.34.248.30 over port 443 which is HTTPS
+
+![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/41417b61-645a-4c46-9684-c4862c32313b)
+
+If i pop that IP into google it shows up on a few blocklists possibly associated with Malware.
+
+![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/e5695cc2-70ce-498b-8726-f9b3ac34ae50)
+
+
+
 
 
 
