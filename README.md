@@ -5,13 +5,16 @@
 In this lab, we will import previously run hunts across 10 similar systems, using stacking/grouping to identify outliers. 
 
 ## Skills Learned
-- Run a Kerberoasting attack
+- Using Notebooks in Velociraptor
+- Modifying Notebooks in Velociraptor
+- Using Stacking and Grouping to identify outliers
 
 ## Tools Used
 - Ubuntu 20.04
 - SSH
 - Windows CLI
 - VMware Workstation
+- Velociraptor
 
 
 
