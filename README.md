@@ -89,7 +89,7 @@ The other rundll32.exe points to a DLL in a \\Temp\\ folder which is unusual. We
 
 I like the way this lab is set out making me ask questions along the way to get my head into the mind of a SOC Analyst... 
 
-# Question - What are the most/least common network connections across these systems?
+### Question - What are the most/least common network connections across these systems?
 
 Lets open up the Hunt - 'Stacking - Windows.Network.Netstat' and use the supplied Notebook which will group and count all network connections by process Name and Raddr.IP or “remote address IP.”
 
@@ -123,11 +123,11 @@ ORDER BY Count
 
 Now we can easily see the same rundll32.exe going out to a remote IP 70.34.248.30 over port 443 which is HTTPS
 
-![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/41417b61-645a-4c46-9684-c4862c32313b)
+![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/244abae3-0297-4a3a-8198-35e8cd5a648c)
 
 If i pop that IP into google it shows up on a few blocklists possibly associated with Malware.
 
-![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/e5695cc2-70ce-498b-8726-f9b3ac34ae50)
+![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/41417b61-645a-4c46-9684-c4862c32313b)
 
 
 
