@@ -14,6 +14,7 @@ In this lab, we will import previously run hunts across 10 similar systems, usin
 - VMware Workstation
 
 
+
 ## Step 1 - Setup
 
 I have already downloaded Ubuntu 20.04 for this lab and opened it up in VMware Workstation and have my Veloceraptor server set up and ready to go
@@ -30,6 +31,8 @@ sudo su
 Opening up the web UI to view Veloceraptor 'https://192.168.149.130:8889/app/index.html#/hunts'
 
 ![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/0ef9545f-daca-44be-9782-32a1229227dc)
+
+
 
 
 ## Step 2 - Let's Dive Into The Hunts
@@ -85,11 +88,13 @@ The other rundll32.exe points to a DLL in a \\Temp\\ folder which is unusual. We
 
 ![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/8e69ed28-1a00-40b3-ac7c-6fc7648062a0)
 
+
+
 ## Baselining Network Activity
 
 I like the way this lab is set out making me ask questions along the way to get my head into the mind of a SOC Analyst... 
 
-### Question - What are the most/least common network connections across these systems?
+Question - What are the most/least common network connections across these systems?
 
 Lets open up the Hunt - 'Stacking - Windows.Network.Netstat' and use the supplied Notebook which will group and count all network connections by process Name and Raddr.IP or “remote address IP.”
 
@@ -125,12 +130,83 @@ Now we can easily see the same rundll32.exe going out to a remote IP 70.34.248.3
 
 ![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/244abae3-0297-4a3a-8198-35e8cd5a648c)
 
-If i pop that IP into google it shows up on a few blocklists possibly associated with Malware.
+If i pop that IP into VirusTotal it shows its possibly associated with Malware.
 
 ![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/41417b61-645a-4c46-9684-c4862c32313b)
 
 
 
+## Persistence Mechanisms - Baselining Services
+
+Lets open up the Hunt - 'Stacking - Windows.System.Services' and use the supplied notepad and answer the question "What are the least common services across these systems?"
+
+```
+SELECT State,Name,DisplayName,StartMode,PathName,Created,ServiceDll,HashServiceExe.MD5,CertinfoServiceExe.Trusted,HashServiceDll.MD5,CertinfoServiceDll.Trusted,Fqdn,count() AS Count FROM source(artifact="Windows.System.Services")
+WHERE StartMode = "Auto" // only services that start automatically at boot (persistence)
+GROUP BY Name,DisplayName,PathName
+ORDER BY Count
+```
+
+Again we need to find the rarest entries and tweak the notebook to tune out these seemingly unique services to see the true least prevalent outliers - There are a total of 91 in the list to get through.
+
+![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/7f56244d-301b-4894-ba0c-5ce2216652ed)
+
+For this as above we already know that svchost.exe with a -k is generally ok so im going to start by filtering those out - This took it down from 91 to 14 entries.
+
+```
+SELECT State,Name,DisplayName,StartMode,PathName,Created,ServiceDll,HashServiceExe.MD5,CertinfoServiceExe.Trusted,HashServiceDll.MD5,CertinfoServiceDll.Trusted,Fqdn,count() AS Count FROM source(artifact="Windows.System.Services")
+WHERE StartMode = "Auto" // only services that start automatically at boot (persistence)
+AND NOT PathName =~ "svchost\.exe.-k"
+GROUP BY Name,DisplayName,PathName
+ORDER BY Count
+```
+
+If i am looking at whats not normal the the svchost.exe without the -k stands out as its not in the correct location for svchost, this enty also shows as 'Untrusted' This appears to be running on DESKTOP-S9UPV4M.localdomain
+
+![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/50a3cf4e-fe36-460d-adf1-528f02bc0b7a)
+
+
+
+## Persistence Mechanisms - Baselining Scheduled Tasks
+
+Lets open up the Hunt - 'Stacking - Windows.System.TaskScheduler' and use the supplied notepad and answer the question "What are the least common scheduled tasks across these systems?"
+
+```
+SELECT FullPath,Command,Arguments,UserId,Fqdn,count() AS Count FROM source()
+GROUP BY FullPath,Command,Arguments
+ORDER BY Count
+```
+
+The owner of DESKTOP-S9UPV4M.localdomain admits to having installed CCleaner and a consumer VPN, so again we need to tweak the notebook to look for a malicious entry and to filter these outliers. - There is a total of 210 entries.
+
+So i need to filter out the installed programs CCLeaner and the VPN
+
+```
+SELECT FullPath,Command,Arguments,UserId,Fqdn,count() AS Count FROM source()
+WHERE NOT FullPath =~ "(CCleaner|VPN)"
+GROUP BY FullPath,Command,Arguments
+ORDER BY Count
+```
+
+We see a MSEdge Update Check which points to rundll32.exe and also in the Arguments column we see a dll in a weird place. 
+
+![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/f730c048-2c03-48a3-be1c-ccb984c9adbd)
+
+
+
+## Persistence Mechanisms - Baselining WMI Event Consumers
+
+Lets open up the Hunt - 'Stacking - Windows.Persistence.PermanentWMIEvents' and use the supplied notepad and answer the question "What are the least common WMI Event Consumers across these systems?"
+
+```
+SELECT *,count() AS Count FROM source(artifact="Windows.Persistence.PermanentWMIEvents")
+GROUP BY ConsumerDetails,FilterDetails
+ORDER BY Count
+```
+
+There is only 1 unique WMI Event Consumer and it’s consistent across each system. Further inspection of the Event Consumer does not reveal anything suspicious or unusual.
+
+![image](https://github.com/Matt4llan/Threat-Hunting-with-Velociraptor/assets/156334555/346d6914-a034-47a1-a372-9e2d8473e4fd)
 
 
 
